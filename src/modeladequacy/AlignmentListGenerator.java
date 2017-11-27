@@ -17,6 +17,7 @@ import beast.core.BEASTInterface;
 import beast.core.BEASTObject;
 import beast.core.Description;
 import beast.core.Input;
+import beast.core.Loggable;
 import beast.core.Input.Validate;
 import beast.core.Logger;
 import beast.core.Logger.LOGMODE;
@@ -24,6 +25,8 @@ import beast.core.MCMC;
 import beast.core.StateNode;
 import beast.core.parameter.Parameter;
 import beast.evolution.alignment.Alignment;
+import beast.evolution.branchratemodel.BranchRateModel;
+import beast.evolution.branchratemodel.StrictClockModel;
 import beast.evolution.likelihood.GenericTreeLikelihood;
 import beast.evolution.tree.Node;
 import beast.evolution.tree.Tree;
@@ -34,7 +37,7 @@ import beast.util.XMLParserException;
 @Description("Simulates a number of alignments from an XML analysis")
 public class AlignmentListGenerator extends BEASTObject {
 	final public Input<File> XMLFileInput = new Input<>("xml", "XML file containing the BEAST model to simulate from. This file can be generated in BEAUti.", Validate.REQUIRED);
-	final public Input<File> logDirInput = new Input<>("logdir", "directory containing log files with a posterior sample of the XML analysis (uses current working dir if not specified)");
+	final public Input<File> logDirInput = new Input<>("logDir", "directory containing log files with a posterior sample of the XML analysis (uses current working dir if not specified)");
 	final public Input<Integer> burnInPercentageInput = new Input<>("burnin", "percentage of log file to disregard as burn-in", 10);
 	final public Input<Integer> alignmentCountInput = new Input<>("alignments", "number of alignments to generate (must be less than number of entries in log file once burn-in is removed)", 100);
 	
@@ -43,7 +46,7 @@ public class AlignmentListGenerator extends BEASTObject {
 	}
 	
 	public AlignmentListGenerator(File xml, File logDir, int burnInPercentage, int alignmentCount) {
-		initByName("xml", xml, "logdir", logDir, "burnin", burnInPercentage, "alignments", alignmentCount);
+		initByName("xml", xml, "logDir", logDir, "burnin", burnInPercentage, "alignments", alignmentCount);
 	}
 	
 	
@@ -73,6 +76,18 @@ public class AlignmentListGenerator extends BEASTObject {
 		for (Logger logger : mcmc.loggersInput.get()) {
 			if (logger.mode == LOGMODE.tree) {
 				treeFile = logger.fileNameInput.get();
+	            if (treeFile.contains("$(tree)")) {
+	            	String treeName = "tree";
+	            	for (BEASTInterface logable : logger.loggersInput.get()) {
+	            		if (logable instanceof BEASTObject) {
+	            			final String id = ((BEASTObject) logable).getID();
+	            			if (id.indexOf(".t:") > 0) {
+	            				treeName = id.substring(id.indexOf(".t:") + 3); 
+	            			}
+	            		}
+	            	}
+	            	treeFile = treeFile.replace("$(tree)", treeName);
+	            }
 			} else if (logger.mode == LOGMODE.compound && logger.fileNameInput.get() != null) {
 				traceLogFile = logger.fileNameInput.get();
 			}
@@ -124,26 +139,26 @@ public class AlignmentListGenerator extends BEASTObject {
 				Parameter param = (Parameter) stateNode;
 				String label = stateNode.getID();
 				if (stateNode.getDimension() == 1) {
-					Double [] trace = traceLog.getTrace(label);
-					if (trace == null) {
-						label = label.substring(0, label.indexOf('.'));
-						trace = traceLog.getTrace(label);
+					int index = traceLog.indexof(label);
+					if (index < 0) {
+						index = traceLog.indexof(label.substring(0, label.indexOf('.')));
 					}
-					if (trace == null) {
+					if (index < 0) {
 						throw new IllegalArgumentException("Could not find entry for " + stateNode.getID() + " in tracelog");
 					}
+					Double [] trace = traceLog.getTrace(index);
 					param.setValue(trace[i]);					
 				} else {
-					for (int j = 0; j < param.getDimension(); j++) {
-						Double [] trace = traceLog.getTrace(label + j);
-						if (trace == null) {
-							label = label.substring(0, label.indexOf('.')) + j;
-							trace = traceLog.getTrace(label);
+					for (int j = 1; j <= param.getDimension(); j++) {
+						int index = traceLog.indexof(label + j);
+						if (index < 0) {
+							index = traceLog.indexof(label.substring(0, label.indexOf('.')+1) + j);
 						}
-						if (trace == null) {
+						if (index < 0) {
 							throw new IllegalArgumentException("Could not find entry for " + stateNode.getID() + j + " in tracelog");
 						}
-						param.setValue(j, trace[i]);					
+						Double [] trace = traceLog.getTrace(index);
+						param.setValue(j-1, trace[i]);					
 					}
 				}
 			}
@@ -158,8 +173,14 @@ public class AlignmentListGenerator extends BEASTObject {
 		double [] lengths = new double[tree.getNodeCount()];
 		for (Node node : tree.getNodesAsArray()) {
 			Object rate = node.getMetaData("rate");
-			if (rate != null) {
+			if (rate != null && rate instanceof Double) {
 				Double r = (Double) rate;
+				lengths[node.getNr()] = node.getLength() * r;
+			} else if (rate != null && rate instanceof Integer) {
+				Integer r = (Integer) rate;
+				if (r == 0) {
+					r = 1;
+				}
 				lengths[node.getNr()] = node.getLength() * r;
 			} else {
 				lengths[node.getNr()] = node.getLength();
@@ -190,8 +211,17 @@ public class AlignmentListGenerator extends BEASTObject {
 
 	private SequenceSimulator getSimulator(GenericTreeLikelihood treeLikelihood) {
 		SequenceSimulator simulator = new SequenceSimulator();
+		BranchRateModel clockModel = new StrictClockModel();
+		if (treeLikelihood.branchRateModelInput.get() instanceof StrictClockModel) {
+			// this ensures for strict clocks the clock rate is taken from the log file,
+			// while for other clock models rates are logged in the tree (@see scaleByRate())
+			clockModel = treeLikelihood.branchRateModelInput.get();
+		}
+		
 		simulator.initByName("tree", treeLikelihood.treeInput.get(),
-				"siteModel", treeLikelihood.siteModelInput.get());		
+				"siteModel", treeLikelihood.siteModelInput.get(),
+				"data", treeLikelihood.dataInput.get(),
+				"branchRateModel", clockModel);		
 		return simulator;
 	}
 

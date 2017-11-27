@@ -18,7 +18,7 @@ import beast.core.MCMC;
 
 public class MA extends Runnable {
 	final public Input<File> XMLFileInput = new Input<>("xml", "XML file containing the BEAST model to simulate from. This file can be generated in BEAUti.", Validate.REQUIRED);
-	final public Input<File> logDirInput = new Input<>("logdir", "directory containing log files with a posterior sample of the XML analysis (uses current working dir if not specified)");
+	final public Input<File> logDirInput = new Input<>("logDir", "directory containing log files with a posterior sample of the XML analysis (uses current working dir if not specified)");
 	final public Input<Integer> burnInPercentageInput = new Input<>("burnin", "percentage of log file to disregard as burn-in", 10);
 	final public Input<Integer> alignmentCountInput = new Input<>("alignments", "number of alignments to generate (must be less than number of entries in log file once burn-in is removed)", 100);
 
