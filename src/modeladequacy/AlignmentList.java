@@ -29,6 +29,7 @@ public class AlignmentList extends Alignment {
 		currentAlignment = alignments.get(indicator.getValue());
 		
 		maxStateCount = currentAlignment.getMaxStateCount();
+		taxaNames = getTaxaNames();
 	}
 	
 	
@@ -176,4 +177,10 @@ public class AlignmentList extends Alignment {
 	public String getSequenceAsString(String taxon) {
 		return currentAlignment.getSequenceAsString(taxon);
 	}
+	
+	@Override
+	public List<String> getTaxaNames() {
+		return currentAlignment.getTaxaNames();
+	}
+	
 }

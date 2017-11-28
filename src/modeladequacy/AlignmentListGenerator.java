@@ -17,7 +17,6 @@ import beast.core.BEASTInterface;
 import beast.core.BEASTObject;
 import beast.core.Description;
 import beast.core.Input;
-import beast.core.Loggable;
 import beast.core.Input.Validate;
 import beast.core.Logger;
 import beast.core.Logger.LOGMODE;
@@ -73,6 +72,8 @@ public class AlignmentListGenerator extends BEASTObject {
 			e.printStackTrace();
 			throw new IllegalArgumentException(e);
 		}
+		
+		// determine traceLogFile and treeFile
 		for (Logger logger : mcmc.loggersInput.get()) {
 			if (logger.mode == LOGMODE.tree) {
 				treeFile = logger.fileNameInput.get();
@@ -110,6 +111,7 @@ public class AlignmentListGenerator extends BEASTObject {
 			Alignment alignment = simulator.simulate();			
 			list.alignmentsInput.get().add(alignment);
 		}
+		
 		return list;
 	}
 
@@ -221,7 +223,8 @@ public class AlignmentListGenerator extends BEASTObject {
 		simulator.initByName("tree", treeLikelihood.treeInput.get(),
 				"siteModel", treeLikelihood.siteModelInput.get(),
 				"data", treeLikelihood.dataInput.get(),
-				"branchRateModel", clockModel);		
+				"branchRateModel", clockModel,
+				"sequencelength", treeLikelihood.dataInput.get().getSiteCount());		
 		return simulator;
 	}
 

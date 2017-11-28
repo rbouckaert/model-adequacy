@@ -2,8 +2,10 @@ package modeladequacy;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.util.Set;
 
 import beast.app.util.Application;
+import beast.core.BEASTInterface;
 import beast.core.Input;
 import beast.core.Runnable;
 import beast.core.State;
@@ -11,6 +13,9 @@ import beast.core.Input.Validate;
 import beast.core.Logger;
 import beast.core.parameter.IntegerParameter;
 import beast.core.util.Log;
+import beast.evolution.alignment.Alignment;
+import beast.evolution.alignment.Taxon;
+import beast.evolution.alignment.TaxonSet;
 import beast.evolution.likelihood.GenericTreeLikelihood;
 import beast.evolution.operators.UniformOperator;
 import beast.util.XMLProducer;
@@ -33,6 +38,22 @@ public class MA extends Runnable {
 		AlignmentList list = alg.generateAlignmentList();
 		MCMC mcmc = alg.mcmc;
 		GenericTreeLikelihood treeLikelihood = AlignmentListGenerator.getTreeLikelihood(mcmc);
+		Alignment data = treeLikelihood.dataInput.get();
+		TaxonSet taxonset = getTaxonSet(data); 
+		Set<BEASTInterface> set = data.getOutputs();
+		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
+			if (bo instanceof TaxonSet) {
+				TaxonSet t = (TaxonSet) bo;
+				t.taxonsetInput.get().addAll(taxonset.taxonsetInput.get());
+				t.alignmentInput.set(null);
+			} else {
+				for (Input<?> input : bo.listInputs()) {
+					if (input.get() != null && input.get().equals(data)) {
+						input.setValue(list, bo);
+					}
+				}
+			}
+		}
 		treeLikelihood.dataInput.setValue(list, treeLikelihood);
 		
 		// add alignment indicator
@@ -56,6 +77,8 @@ public class MA extends Runnable {
 			}
 		}
 	
+		list.indicatorInput.setValue(indicator, list);
+		list.initAndValidate();
 		
 		XMLProducer producer = new XMLProducer();
 		String xml = producer.toXML(mcmc);
@@ -65,6 +88,15 @@ public class MA extends Runnable {
 		
         Log.warning("Done set up. Start running the analysis");
 		mcmc.run();
+	}
+
+	private TaxonSet getTaxonSet(Alignment data) {
+		TaxonSet taxonSet = new TaxonSet();
+		for (String taxon : data.getTaxaNames()) {
+			taxonSet.taxonsetInput.get().add(new Taxon(taxon));
+		}
+		taxonSet.setID("newTaxonSet");
+		return taxonSet;
 	}
 
 	public static void main(String[] args) throws Exception {
