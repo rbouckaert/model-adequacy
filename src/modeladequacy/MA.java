@@ -2,6 +2,7 @@ package modeladequacy;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.util.List;
 import java.util.Set;
 
 import beast.app.util.Application;
@@ -17,6 +18,7 @@ import beast.evolution.alignment.Alignment;
 import beast.evolution.alignment.Taxon;
 import beast.evolution.alignment.TaxonSet;
 import beast.evolution.likelihood.GenericTreeLikelihood;
+import beast.evolution.likelihood.MATreeLikelihood;
 import beast.evolution.operators.UniformOperator;
 import beast.util.XMLProducer;
 import beast.core.MCMC;
@@ -38,11 +40,38 @@ public class MA extends Runnable {
 		AlignmentList list = alg.generateAlignmentList();
 		MCMC mcmc = alg.mcmc;
 		GenericTreeLikelihood treeLikelihood = AlignmentListGenerator.getTreeLikelihood(mcmc);
+		MATreeLikelihood newLikelihood = new MATreeLikelihood();
+		newLikelihood.initByName("tree", treeLikelihood.treeInput.get(),
+				"siteModel", treeLikelihood.siteModelInput.get(),
+				"data", treeLikelihood.dataInput.get(),
+				"branchRateModel", treeLikelihood.branchRateModelInput.get());		
+		Set<BEASTInterface> set = treeLikelihood.getOutputs();
+		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
+			for (Input<?> input : bo.listInputs()) {
+				if (input.get() != null) {
+					if (input.get().equals(treeLikelihood)) {
+						input.setValue(newLikelihood, bo);
+					} else if (input.get() instanceof List<?>) {
+						List l = (List) input.get();
+						for (int i = 0; i < l.size(); i++) {
+							Object o = l.get(i);
+							if (o.equals(treeLikelihood)) {
+								l.set(i, newLikelihood);
+							}
+						}
+					}
+				}
+			}
+		}
+		
 		Alignment data = treeLikelihood.dataInput.get();
 		TaxonSet taxonset = getTaxonSet(data); 
-		Set<BEASTInterface> set = data.getOutputs();
+		set = data.getOutputs();
 		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
 			if (bo instanceof TaxonSet) {
+				// to prevent a TaxonSet sitting in between the indicator parameter of AlignmentList (which is a StateNode)
+				// and TreeLikelihood (a CalculationNode) while TaxonSet is not a CalculationNode, we pass taxa to the
+				// TaxonSet and set Alignment-input to null
 				TaxonSet t = (TaxonSet) bo;
 				t.taxonsetInput.get().addAll(taxonset.taxonsetInput.get());
 				t.alignmentInput.set(null);

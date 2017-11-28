@@ -106,10 +106,21 @@ public class AlignmentListGenerator extends BEASTObject {
 		getStateAncestors(treeLikelihood, stateNodes);
 		AlignmentList list = new AlignmentList();
 		SequenceSimulator simulator = getSimulator(treeLikelihood);
+		List<Alignment> alignments = list.alignmentsInput.get();
+
+		// generate alignments, make sure the first alignment has the largest patterncount
+		// so likelihoodCores will reserve appropriate amount of memory
+		int maxPatternCount = 0;
 		for (int i = 0; i < alignemntCount; i++) {
 			initialiseState(stateNodes, i, traceLog, treeSet);
-			Alignment alignment = simulator.simulate();			
-			list.alignmentsInput.get().add(alignment);
+			Alignment alignment = simulator.simulate();
+			alignment.initAndValidate();
+			if (alignment.getPatternCount() > maxPatternCount && alignments.size() > 0) {
+				alignments.add(0, alignment);
+			} else {
+				alignments.add(alignment);
+			}
+			maxPatternCount = alignments.get(0).getPatternCount();
 		}
 		
 		return list;
