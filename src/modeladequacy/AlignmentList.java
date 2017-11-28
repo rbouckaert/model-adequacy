@@ -1,6 +1,7 @@
 package modeladequacy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -20,6 +21,8 @@ public class AlignmentList extends Alignment {
 	List<Alignment> alignments;
 	Alignment currentAlignment;
 	int prevAlignment;
+	int patternCount;
+	int [] nullPattern;
 	
 	@Override
 	public void initAndValidate() {
@@ -30,13 +33,20 @@ public class AlignmentList extends Alignment {
 		
 		maxStateCount = currentAlignment.getMaxStateCount();
 		taxaNames = getTaxaNames();
+		
+		for (Alignment a : alignments) {
+			patternCount = Math.max(a.getPatternCount(), patternCount);
+		}
+		
+		nullPattern = new int[taxaNames.size()];
+		Arrays.fill(nullPattern, getMaxStateCount());
 	}
 	
 	
 	
 	@Override
 	protected boolean requiresRecalculation() {
-		if (indicator.isDirtyCalculation()) {
+		if (indicator.somethingIsDirty()) {
 			currentAlignment = alignments.get(indicator.getValue());
 			return true;
 		}
@@ -93,16 +103,23 @@ public class AlignmentList extends Alignment {
 
 	@Override
     public int getPatternCount() {
-        return currentAlignment.getPatternCount();
+		return patternCount;
+        //return currentAlignment.getPatternCount();
     }
 
 	@Override
     public int[] getPattern(int patternIndex_) {
+		if (patternIndex_ >= currentAlignment.getPatternCount()) {
+			return nullPattern;
+		}
         return currentAlignment.getPattern(patternIndex_);
     }
 
 	@Override
     public int getPattern(int taxonIndex, int patternIndex_) {
+		if (patternIndex_ >= currentAlignment.getPatternCount()) {
+			return nullPattern[0];
+		}
         return currentAlignment.getPattern(taxonIndex, patternIndex_);
     }
 

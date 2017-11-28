@@ -1,15 +1,29 @@
 package beast.evolution.likelihood;
 
+import beast.evolution.tree.Tree;
+
 public class MATreeLikelihood extends beast.evolution.likelihood.TreeLikelihood {	
 	boolean updateAlignment = false;
 	
-	public void resetAlignment() {
+	
+	
+	@Override
+	public double calculateLogP() {
+		// TODO Auto-generated method stub
+		return super.calculateLogP();
+	}
+	
+	private void resetAlignment() {
 		if (beagle != null) {
-	        if (m_useAmbiguities.get() || m_useTipLikelihoods.get()) {
-	        	beagle.setPartials(treeInput.get().getRoot(), dataInput.get().getPatternCount());
-	        } else {
-	        	beagle.setStates(treeInput.get().getRoot(), dataInput.get().getPatternCount());
-	        }			
+			Tree tree = (Tree) treeInput.get();			
+	        for (int i = 0; i < tree.getLeafNodeCount(); i++) {
+	        	int taxon = dataInput.get().getTaxonIndex(tree.getNode(i).getID()); 
+		        if (m_useAmbiguities.get() || m_useTipLikelihoods.get()) {
+	                beagle.setPartials(beagle.beagle, i, taxon);
+	            } else {
+	            	beagle.setStates(beagle.beagle, i, taxon);
+	            }
+	        }
 		} else {
 	        if (m_useAmbiguities.get() || m_useTipLikelihoods.get()) {
 	            setPartials(treeInput.get().getRoot(), dataInput.get().getPatternCount());
@@ -18,7 +32,6 @@ public class MATreeLikelihood extends beast.evolution.likelihood.TreeLikelihood 
 	        }
 		}
 	}
-	
 	
 	@Override
 	protected boolean requiresRecalculation() {		

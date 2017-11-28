@@ -40,33 +40,10 @@ public class MA extends Runnable {
 		AlignmentList list = alg.generateAlignmentList();
 		MCMC mcmc = alg.mcmc;
 		GenericTreeLikelihood treeLikelihood = AlignmentListGenerator.getTreeLikelihood(mcmc);
-		MATreeLikelihood newLikelihood = new MATreeLikelihood();
-		newLikelihood.initByName("tree", treeLikelihood.treeInput.get(),
-				"siteModel", treeLikelihood.siteModelInput.get(),
-				"data", treeLikelihood.dataInput.get(),
-				"branchRateModel", treeLikelihood.branchRateModelInput.get());		
-		Set<BEASTInterface> set = treeLikelihood.getOutputs();
-		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
-			for (Input<?> input : bo.listInputs()) {
-				if (input.get() != null) {
-					if (input.get().equals(treeLikelihood)) {
-						input.setValue(newLikelihood, bo);
-					} else if (input.get() instanceof List<?>) {
-						List l = (List) input.get();
-						for (int i = 0; i < l.size(); i++) {
-							Object o = l.get(i);
-							if (o.equals(treeLikelihood)) {
-								l.set(i, newLikelihood);
-							}
-						}
-					}
-				}
-			}
-		}
-		
+
 		Alignment data = treeLikelihood.dataInput.get();
 		TaxonSet taxonset = getTaxonSet(data); 
-		set = data.getOutputs();
+		Set<BEASTInterface> set = data.getOutputs();
 		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
 			if (bo instanceof TaxonSet) {
 				// to prevent a TaxonSet sitting in between the indicator parameter of AlignmentList (which is a StateNode)
@@ -85,18 +62,21 @@ public class MA extends Runnable {
 		}
 		treeLikelihood.dataInput.setValue(list, treeLikelihood);
 		
+		
 		// add alignment indicator
 		IntegerParameter indicator = new IntegerParameter();
 		indicator.setID("alignmentIndicator");
-		indicator.initByName("value", 0, "upper", alignmentCountInput.get(), "lower", 0);
+		indicator.initByName("value", 0, "upper", alignmentCountInput.get() - 1, "lower", 0);
 		
 		// add indicator to state
 		State state = mcmc.startStateInput.get();
 		state.stateNodeInput.get().add(indicator);
 		
 		// add indicator operator
-		UniformOperator operator = new UniformOperator();
-		operator.initByName("weight", 3.0, "parameter", indicator);
+		//UniformOperator operator = new UniformOperator();
+		//operator.initByName("weight", 3.0, "parameter", indicator);		
+		IndicatorOperator operator = new IndicatorOperator();
+		operator.initByName("weight", 0.01, "parameter", indicator);
 		mcmc.operatorsInput.get().add(operator);
 		
 		// add indicator to tracelog
@@ -109,6 +89,35 @@ public class MA extends Runnable {
 		list.indicatorInput.setValue(indicator, list);
 		list.initAndValidate();
 		
+		
+		// replace treelikelihood by MATreeLikelihood
+		MATreeLikelihood newLikelihood = new MATreeLikelihood();
+		newLikelihood.initByName("tree", treeLikelihood.treeInput.get(),
+				"siteModel", treeLikelihood.siteModelInput.get(),
+				"data", treeLikelihood.dataInput.get(),
+				"branchRateModel", treeLikelihood.branchRateModelInput.get());		
+		newLikelihood.setID(treeLikelihood.getID());
+
+		set = treeLikelihood.getOutputs();
+		for (BEASTInterface bo : set.toArray(new BEASTInterface[]{})) {
+			for (Input<?> input : bo.listInputs()) {
+				if (input.get() != null) {
+					if (input.get().equals(treeLikelihood)) {
+						input.setValue(newLikelihood, bo);
+					} else if (input.get() instanceof List<?>) {
+						List l = (List) input.get();
+						for (int i = 0; i < l.size(); i++) {
+							Object o = l.get(i);
+							if (o.equals(treeLikelihood)) {
+								l.set(i, newLikelihood);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// save current analysis to XML
 		XMLProducer producer = new XMLProducer();
 		String xml = producer.toXML(mcmc);
         FileWriter outfile = new FileWriter("/tmp/beast.xml");
@@ -116,6 +125,7 @@ public class MA extends Runnable {
         outfile.close();
 		
         Log.warning("Done set up. Start running the analysis");
+        mcmc.initAndValidate();
 		mcmc.run();
 	}
 
