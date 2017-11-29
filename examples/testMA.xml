@@ -196,12 +196,12 @@ userDataType="@Nucleotide">
 
     <init id="RandomTree.t:dna" spec="beast.evolution.tree.RandomTree" estimate="false" initial="@Tree">
         <taxa id="AlignmentList" spec="modeladequacy.AlignmentList" indicator="@alignmentIndicator">
+            <alignment idref="SequenceSimulator5"/>
             <alignment idref="SequenceSimulator"/>
             <alignment idref="SequenceSimulator1"/>
             <alignment idref="SequenceSimulator2"/>
             <alignment idref="SequenceSimulator3"/>
             <alignment idref="SequenceSimulator4"/>
-            <alignment idref="SequenceSimulator5"/>
             <alignment idref="SequenceSimulator6"/>
             <alignment idref="SequenceSimulator7"/>
             <alignment idref="SequenceSimulator8"/>
@@ -226,7 +226,7 @@ userDataType="@Nucleotide">
             </prior>
         </distribution>
         <distribution id="likelihood" spec="util.CompoundDistribution" useThreads="true">
-            <distribution id="treeLikelihood.dna" spec="ThreadedTreeLikelihood" data="@AlignmentList" tree="@Tree">
+            <distribution id="treeLikelihood.dna" spec="MATreeLikelihood" data="@AlignmentList" tree="@Tree">
                 <siteModel id="SiteModel.s:dna" spec="SiteModel">
                     <parameter id="mutationRate.s:dna" estimate="false" name="mutationRate">1.0</parameter>
                     <parameter id="gammaShape.s:dna" estimate="false" name="shape">1.0</parameter>
@@ -258,9 +258,9 @@ userDataType="@Nucleotide">
 
     <operator id="YuleModelWilsonBalding.t:dna" spec="WilsonBalding" tree="@Tree" weight="3.0"/>
 
-    <operator id="KappaScaler.s:dna" spec="ScaleOperator" parameter="@kappa.s:dna" scaleFactor="0.5" weight="0.1"/>
+    <operator id="KappaScaler.s:dna" spec="ScaleOperator" parameter="@kappa.s:dna" scaleFactor="0.5" weight="1.0"/>
 
-    <operator id="FrequenciesExchanger.s:dna" spec="DeltaExchangeOperator" delta="0.01" weight="0.1">
+    <operator id="FrequenciesExchanger.s:dna" spec="DeltaExchangeOperator" delta="0.01" weight="1.0">
         <parameter idref="freqParameter.s:dna"/>
     </operator>
 
@@ -279,7 +279,7 @@ userDataType="@Nucleotide">
         <log idref="alignmentIndicator"/>
     </logger>
 
-    <logger id="screenlog" logEvery="1000">
+    <logger id="screenlog" logEvery="100000">
         <log idref="posterior"/>
         <log id="ESS.0" spec="util.ESS" arg="@posterior"/>
         <log idref="likelihood"/>
